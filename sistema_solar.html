@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚀 Sistema Solar</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000018;
+    color: white;
+    font-family: 'Segoe UI', 'Arial Rounded MT Bold', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+  }
+
+  #stars {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--dur) infinite alternate;
+  }
+
+  @keyframes twinkle {
+    from { opacity: 0.1; }
+    to   { opacity: 0.9; }
+  }
+
+  /* ══ CONFETTI ══ */
+  .confetti-piece {
+    position: fixed;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 999;
+    animation: fall var(--fall-dur) linear forwards;
+  }
+  @keyframes fall {
+    from { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    to   { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ══ TELAS ══ */
+  .screen {
+    position: relative;
+    z-index: 10;
+    display: none;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ══ TELA INICIAL ══ */
+  #screen-start {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .title-rocket {
+    font-size: 5rem;
+    animation: bounce 1.2s ease-in-out infinite alternate;
+    display: block;
+  }
+
+  @keyframes bounce {
+    from { transform: translateY(0) rotate(-5deg); }
+    to   { transform: translateY(-20px) rotate(5deg); }
+  }
+
+  #screen-start h1 {
+    font-size: 3.2rem;
+    text-shadow: 0 0 30px #7af, 0 0 60px #06f;
+    margin: 0.3rem 0 0.6rem;
+    letter-spacing: 2px;
+  }
+
+  #screen-start .sub {
+    font-size: 1.4rem;
+    color: #adf;
+    margin-bottom: 2.5rem;
+  }
+
+  .menu-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .btn {
+    padding: 1.1rem 1.5rem;
+    font-size: 1.4rem;
+    border: none;
+    border-radius: 60px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.15s, box-shadow 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  .btn:hover  { transform: scale(1.06); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-blue {
+    background: linear-gradient(135deg, #5af, #06f);
+    color: white;
+    box-shadow: 0 6px 24px #06f9;
+  }
+
+  .btn-orange {
+    background: linear-gradient(135deg, #ffa040, #f60);
+    color: white;
+    box-shadow: 0 6px 24px #f609;
+  }
+
+  .btn-green {
+    background: linear-gradient(135deg, #6f6, #0c0);
+    color: #002200;
+    box-shadow: 0 6px 24px #0f09;
+  }
+
+  .btn-back {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    padding: 0.6rem 1.4rem;
+    font-size: 1.1rem;
+    background: #ffffff1a;
+    border: 2px solid #ffffff33;
+    border-radius: 30px;
+    color: white;
+    cursor: pointer;
+    z-index: 30;
+    font-weight: bold;
+  }
+
+  .btn-back:hover { background: #ffffff33; }
+
+  /* ══ TELA EXPLORAR ══ */
+  #screen-solar { position: relative; }
+
+  #solar-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    display: block;
+  }
+
+  #hud-solar {
+    position: absolute;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.1rem;
+    color: #9df;
+    pointer-events: none;
+    text-shadow: 0 0 10px #08f;
+    white-space: nowrap;
+  }
+
+  /* ══ PAINEL PLANETA ══ */
+  #planet-panel {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(160deg, #071830, #0d2860);
+    border: 3px solid #4af6;
+    border-radius: 28px;
+    padding: 1.4rem 1.8rem 1.2rem;
+    max-width: 500px;
+    width: 92%;
+    text-align: center;
+    display: none;
+    animation: slideUp 0.3s ease;
+    z-index: 20;
+    box-shadow: 0 0 40px #06f4;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(30px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  #pp-emoji  { font-size: 3.5rem; display: block; }
+  #pp-name   { font-size: 2rem; color: #7df; font-weight: bold; margin: 0.2rem 0 0.4rem; }
+  #pp-desc   { color: #d0eeff; font-size: 1.1rem; line-height: 1.55; }
+  #pp-fun    { margin-top: 0.7rem; font-size: 1rem; color: #ffe; background: #ffffff10; border-radius: 12px; padding: 0.5rem 0.8rem; }
+
+  .pp-stats  {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 0.9rem;
+    font-size: 0.95rem;
+    color: #9cf;
+  }
+
+  .pp-stat strong { display: block; font-size: 1.1rem; color: #fff; }
+
+  #panel-close {
+    margin-top: 1rem;
+    padding: 0.5rem 1.8rem;
+    border-radius: 30px;
+    background: #ffffff18;
+    border: 2px solid #ffffff33;
+    color: white;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  /* ══ QUIZ ══ */
+  #screen-quiz {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  #quiz-box {
+    background: linear-gradient(160deg, #071830, #0d2860);
+    border: 3px solid #4af6;
+    border-radius: 28px;
+    padding: 1.8rem 1.8rem 1.5rem;
+    max-width: 560px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 0 40px #06f4;
+    position: relative;
+    z-index: 1;
+  }
+
+  #quiz-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    color: #9cf;
+  }
+
+  #quiz-progress {
+    height: 10px;
+    background: #ffffff18;
+    border-radius: 10px;
+    margin-bottom: 1.2rem;
+    overflow: hidden;
+  }
+
+  #quiz-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4af, #0f0);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+  }
+
+  #quiz-question {
+    font-size: 1.4rem;
+    line-height: 1.5;
+    margin-bottom: 1.4rem;
+    color: #eef;
+    min-height: 3rem;
+  }
+
+  .quiz-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .opt-btn {
+    padding: 1rem 0.5rem;
+    border: 3px solid #4af5;
+    border-radius: 16px;
+    background: #0a1a3a;
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+    line-height: 1.3;
+  }
+
+  .opt-btn:hover:not(:disabled) { background: #4af2; border-color: #4af; transform: scale(1.03); }
+  .opt-btn.correct { background: #0a4a0a; border-color: #4f4; color: #8f8; animation: pop 0.3s ease; }
+  .opt-btn.wrong   { background: #4a0a0a; border-color: #f44; color: #f88; }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+
+  #quiz-feedback {
+    font-size: 1.3rem;
+    font-weight: bold;
+    min-height: 2rem;
+    margin-bottom: 0.6rem;
+    transition: opacity 0.2s;
+  }
+
+  #quiz-next { display: none; margin: 0 auto; }
+
+  /* ══ RESULTADO ══ */
+  #quiz-result { display: none; }
+  #result-big  { font-size: 5rem; animation: bigBounce 0.8s ease; }
+
+  @keyframes bigBounce {
+    0%   { transform: scale(0); }
+    70%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  #result-title { font-size: 2.2rem; margin: 0.4rem 0; }
+  #result-msg   { color: #adf; font-size: 1.15rem; margin-bottom: 1.4rem; line-height: 1.5; }
+  #result-stars { font-size: 2.5rem; letter-spacing: 4px; margin-bottom: 0.8rem; }
+
+  .result-btns { display: flex; flex-direction: column; gap: 0.8rem; }
+
+  /* ══ JOGO: ORDEM DOS PLANETAS ══ */
+  #screen-order {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 1rem;
+    overflow-y: auto;
+  }
+
+  #order-box {
+    background: linear-gradient(160deg, #071830, #0d2860);
+    border: 3px solid #fa65;
+    border-radius: 28px;
+    padding: 1.5rem;
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 0 40px #fa44;
+    position: relative;
+    z-index: 1;
+    margin-top: 3.5rem;
+  }
+
+  #order-box h2  { font-size: 1.6rem; color: #fda; margin-bottom: 0.3rem; }
+  #order-box p   { font-size: 1rem; color: #bcd; margin-bottom: 1rem; }
+
+  #order-slots {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .order-slot {
+    width: 62px; height: 62px;
+    border: 3px dashed #fa85;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    background: #ffffff09;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .order-slot .slot-num {
+    position: absolute;
+    top: 2px; left: 6px;
+    font-size: 0.65rem;
+    color: #fa8;
+    font-weight: bold;
+  }
+
+  .order-slot.filled  { border-style: solid; border-color: #fa8; background: #fa820; }
+  .order-slot.correct { border-color: #4f4; background: #0a3a0a; }
+  .order-slot.wrong   { border-color: #f44; background: #3a0a0a; animation: shake 0.4s ease; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-6px); }
+    75%      { transform: translateX(6px); }
+  }
+
+  #order-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .order-choice {
+    padding: 0.5rem 0.8rem;
+    background: #0a1a3a;
+    border: 2px solid #fa85;
+    border-radius: 12px;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .order-choice span { font-size: 0.85rem; color: #cde; }
+  .order-choice:hover { transform: scale(1.1); background: #fa821; }
+  .order-choice.used  { opacity: 0.2; pointer-events: none; }
+
+  #order-check  { display: none; }
+  #order-msg    { font-size: 1.2rem; font-weight: bold; min-height: 1.8rem; margin-bottom: 0.5rem; }
+  #order-score  { font-size: 1rem; color: #9cf; }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<!-- ══════════ TELA INICIAL ══════════ -->
+<div id="screen-start" class="screen" style="display:flex">
+  <span class="title-rocket">🚀</span>
+  <h1>Sistema Solar</h1>
+  <p class="sub">Olá, Pedro! Vamos explorar o espaço! 🌟</p>
+  <div class="menu-btns">
+    <button class="btn btn-blue"   onclick="startSolar()">🌍 Explorar Planetas</button>
+    <button class="btn btn-orange" onclick="startQuiz()">🧠 Quiz do Espaço</button>
+    <button class="btn btn-green"  onclick="startOrder()">🎮 Ordem dos Planetas</button>
+  </div>
+</div>
+
+<!-- ══════════ TELA EXPLORAR ══════════ -->
+<div id="screen-solar" class="screen">
+  <canvas id="solar-canvas"></canvas>
+  <div id="hud-solar">👆 Toque em um planeta para aprender!</div>
+  <button class="btn-back" onclick="showStart()">← Voltar</button>
+
+  <div id="planet-panel">
+    <span id="pp-emoji"></span>
+    <div id="pp-name"></div>
+    <p id="pp-desc"></p>
+    <p id="pp-fun"></p>
+    <div class="pp-stats">
+      <div class="pp-stat">🌡️ Temperatura<strong id="pp-temp"></strong></div>
+      <div class="pp-stat">🌙 Luas<strong id="pp-moons"></strong></div>
+    </div>
+    <button id="panel-close" onclick="closePlanetPanel()">✓ Entendi!</button>
+  </div>
+</div>
+
+<!-- ══════════ TELA QUIZ ══════════ -->
+<div id="screen-quiz" class="screen">
+  <button class="btn-back" onclick="showStart()">← Voltar</button>
+  <div id="quiz-box">
+    <!-- progresso -->
+    <div id="quiz-topbar">
+      <span id="quiz-num">Pergunta 1/8</span>
+      <span id="quiz-pts">⭐ 0 pontos</span>
+    </div>
+    <div id="quiz-progress"><div id="quiz-progress-bar" style="width:0%"></div></div>
+
+    <!-- pergunta -->
+    <div id="quiz-question"></div>
+    <div class="quiz-options" id="quiz-options"></div>
+    <div id="quiz-feedback"></div>
+    <button class="btn btn-blue" id="quiz-next" onclick="nextQuestion()">Próxima ➡️</button>
+
+    <!-- resultado -->
+    <div id="quiz-result">
+      <div id="result-big"></div>
+      <div id="result-stars"></div>
+      <div id="result-title"></div>
+      <p  id="result-msg"></p>
+      <div class="result-btns">
+        <button class="btn btn-blue"   onclick="startQuiz()">🔄 Jogar de novo</button>
+        <button class="btn btn-orange" onclick="showStart()">🏠 Início</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ TELA ORDEM ══════════ -->
+<div id="screen-order" class="screen">
+  <button class="btn-back" onclick="showStart()">← Voltar</button>
+  <div id="order-box">
+    <h2>🪐 Qual a ordem dos planetas?</h2>
+    <p>Coloque os planetas na ordem certa, do mais perto ao mais longe do Sol! ☀️</p>
+    <div id="order-slots"></div>
+    <div id="order-choices"></div>
+    <div id="order-msg"></div>
+    <div id="order-score"></div>
+    <button class="btn btn-green"  id="order-check" onclick="checkOrder()">✅ Verificar!</button>
+    <button class="btn btn-blue"   id="order-retry" onclick="startOrder()" style="display:none;margin-top:0.5rem">🔄 Tentar de novo</button>
+    <button class="btn btn-orange" style="margin-top:0.5rem" onclick="showStart()">🏠 Início</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// ESTRELAS
+// ══════════════════════════════════════════════
+(function() {
+  const c = document.getElementById('stars');
+  for (let i = 0; i < 160; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--dur:${(Math.random()*2+0.8).toFixed(1)}s`;
+    c.appendChild(s);
+  }
+})();
+
+// ══════════════════════════════════════════════
+// SOM (Web Audio API — sem arquivo externo)
+// ══════════════════════════════════════════════
+const AC = window.AudioContext ? new AudioContext() : null;
+
+function beep(freq, dur, type='sine', vol=0.3) {
+  if (!AC) return;
+  const o = AC.createOscillator();
+  const g = AC.createGain();
+  o.connect(g); g.connect(AC.destination);
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+  o.start(); o.stop(AC.currentTime + dur);
+}
+
+function soundCorrect()  { beep(523,0.12); setTimeout(()=>beep(659,0.12),120); setTimeout(()=>beep(784,0.2),240); }
+function soundWrong()    { beep(220,0.3,'sawtooth',0.25); }
+function soundClick()    { beep(440,0.07,'triangle',0.15); }
+function soundWin()      {
+  [523,587,659,698,784,880].forEach((f,i) => setTimeout(()=>beep(f,0.18),i*100));
+}
+
+// ══════════════════════════════════════════════
+// CONFETTI
+// ══════════════════════════════════════════════
+function confetti(n=60) {
+  const colors = ['#ff6','#f6f','#6ff','#f96','#6f6','#f66','#99f'];
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'confetti-piece';
+    d.style.cssText = `
+      left:${Math.random()*100}vw;
+      top:-20px;
+      background:${colors[i%colors.length]};
+      --fall-dur:${(Math.random()*1.5+1).toFixed(1)}s;
+      animation-delay:${(Math.random()*0.5).toFixed(2)}s;
+    `;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 2500);
+  }
+}
+
+// ══════════════════════════════════════════════
+// DADOS DOS PLANETAS
+// ══════════════════════════════════════════════
+const PLANETS = [
+  {
+    name:'Mercúrio', emoji:'🪨', color:'#c8b8b0',
+    orbitR:75, size:7, speed:0.048, order:1,
+    temp:'+167°C (dia) / -180°C (noite)', moons:'0 luas',
+    desc:'O planeta mais pequenininho! É o mais perto do Sol.',
+    fun:'💡 Um dia em Mercúrio dura mais que seu ano!'
+  },
+  {
+    name:'Vênus', emoji:'🌕', color:'#e8cda0',
+    orbitR:112, size:11, speed:0.035, order:2,
+    temp:'+464°C', moons:'0 luas',
+    desc:'O planeta mais quente! É mais quente que Mercúrio, mesmo sendo mais longe do Sol.',
+    fun:'💡 Vênus gira ao contrário dos outros planetas!'
+  },
+  {
+    name:'Terra', emoji:'🌍', color:'#4a9eff',
+    orbitR:155, size:12, speed:0.029, order:3,
+    temp:'+15°C', moons:'1 lua',
+    desc:'Nossa casa! O único planeta que tem vida. Tem oceanos, árvores e animais!',
+    fun:'💡 A Terra parece uma bola de mármore azul vista do espaço!'
+  },
+  {
+    name:'Marte', emoji:'🔴', color:'#c1440e',
+    orbitR:200, size:9, speed:0.024, order:4,
+    temp:'-65°C', moons:'2 luas',
+    desc:'O Planeta Vermelho! A terra de Marte é vermelha porque tem muito ferro enferrujado.',
+    fun:'💡 O maior vulcão do Sistema Solar fica em Marte!'
+  },
+  {
+    name:'Júpiter', emoji:'🟠', color:'#c88b3a',
+    orbitR:265, size:30, speed:0.013, order:5,
+    temp:'-110°C', moons:'95 luas',
+    desc:'O maior de todos! Cabe mais de 1.300 Terras dentro dele. É gigantesco!',
+    fun:'💡 A mancha vermelha de Júpiter é uma tempestade que dura há séculos!'
+  },
+  {
+    name:'Saturno', emoji:'🪐', color:'#e4d191',
+    orbitR:338, size:25, speed:0.0096, order:6,
+    temp:'-140°C', moons:'146 luas',
+    desc:'Tem anéis lindos feitos de gelo e pedras! É o mais bonito do sistema solar.',
+    fun:'💡 Saturno é tão leve que flutuaria na água!'
+  },
+  {
+    name:'Urano', emoji:'🔵', color:'#7de8e8',
+    orbitR:400, size:17, speed:0.0068, order:7,
+    temp:'-195°C', moons:'28 luas',
+    desc:'Gira de lado! Parece uma bola rolando de lado pelo espaço. Muito estranho!',
+    fun:'💡 Urano é o planeta mais frio de todos!'
+  },
+  {
+    name:'Netuno', emoji:'💙', color:'#4b70dd',
+    orbitR:458, size:16, speed:0.0054, order:8,
+    temp:'-200°C', moons:'16 luas',
+    desc:'O mais longe do Sol! Tem ventos super fortes, mais rápidos que qualquer furacão da Terra.',
+    fun:'💡 Um ano em Netuno dura 165 anos da Terra!'
+  }
+];
+
+const SOL = {
+  name:'Sol', emoji:'☀️', color:'#ffcc00',
+  temp:'5.500°C na superfície!', moons:'-',
+  desc:'A nossa estrela! O Sol ilumina e aquece todos os planetas.',
+  fun:'💡 O Sol tem 99,8% de toda a massa do Sistema Solar!'
+};
+
+// ══════════════════════════════════════════════
+// NAVEGAÇÃO
+// ══════════════════════════════════════════════
+let solarRunning = false;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.style.display='none');
+  const el = document.getElementById(id);
+  el.style.display = (id==='screen-quiz'||id==='screen-order') ? 'flex' : 'block';
+  if (id==='screen-start') el.style.display='flex';
+}
+
+function showStart()  { stopSolar(); showScreen('screen-start'); }
+function startSolar() { showScreen('screen-solar'); initSolar(); }
+function startQuiz()  { showScreen('screen-quiz');  initQuiz(); }
+function startOrder() { showScreen('screen-order'); initOrder(); }
+
+// ══════════════════════════════════════════════
+// SISTEMA SOLAR
+// ══════════════════════════════════════════════
+let animId = null;
+let angles  = PLANETS.map(() => Math.random() * Math.PI * 2);
+let hovered = null;
+
+function stopSolar() {
+  solarRunning = false;
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+}
+
+function initSolar() {
+  stopSolar();
+  closePlanetPanel();
+  solarRunning = true;
+
+  const canvas = document.getElementById('solar-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.onresize = resize;
+
+  // clique
+  canvas.onclick = (e) => {
+    soundClick();
+    const r  = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const cx = canvas.width/2, cy = canvas.height/2;
+
+    if (Math.hypot(mx-cx, my-cy) < 36) { openPanel(SOL); return; }
+
+    for (let i = 0; i < PLANETS.length; i++) {
+      const p  = PLANETS[i];
+      const px = cx + Math.cos(angles[i])*p.orbitR;
+      const py = cy + Math.sin(angles[i])*p.orbitR;
+      if (Math.hypot(mx-px, my-py) < p.size + 10) { openPanel(p); return; }
+    }
+    closePlanetPanel();
+  };
+
+  canvas.onmousemove = (e) => {
+    const r  = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const cx = canvas.width/2, cy = canvas.height/2;
+    hovered = null;
+    if (Math.hypot(mx-cx, my-cy) < 36) { hovered='sun'; canvas.style.cursor='pointer'; return; }
+    for (let i = 0; i < PLANETS.length; i++) {
+      const p  = PLANETS[i];
+      const px = cx + Math.cos(angles[i])*p.orbitR;
+      const py = cy + Math.sin(angles[i])*p.orbitR;
+      if (Math.hypot(mx-px, my-py) < p.size + 10) { hovered=i; canvas.style.cursor='pointer'; return; }
+    }
+    canvas.style.cursor='default';
+  };
+
+  function loop() {
+    if (!solarRunning) return;
+    const w=canvas.width, h=canvas.height;
+    ctx.clearRect(0,0,w,h);
+    const cx=w/2, cy=h/2;
+
+    // orbitas
+    ctx.strokeStyle='#ffffff14'; ctx.lineWidth=1.5;
+    for (const p of PLANETS) {
+      ctx.beginPath(); ctx.arc(cx,cy,p.orbitR,0,Math.PI*2); ctx.stroke();
+    }
+
+    // Sol
+    ['#fff8e0','#ffcc00','#ff9900'].forEach((c,i) => {
+      const g = ctx.createRadialGradient(cx,cy,0,cx,cy,34-i*5);
+      g.addColorStop(0,c); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,34-i*4,0,Math.PI*2); ctx.fill();
+    });
+
+    if (hovered==='sun') { ctx.strokeStyle='#ffcc0055'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,cy,42,0,Math.PI*2); ctx.stroke(); }
+    ctx.fillStyle='#fff'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('☀️ Sol', cx, cy+52);
+
+    // planetas
+    for (let i=0; i<PLANETS.length; i++) {
+      const p=PLANETS[i];
+      angles[i] += p.speed * 0.018;
+      const px=cx+Math.cos(angles[i])*p.orbitR;
+      const py=cy+Math.sin(angles[i])*p.orbitR;
+
+      if (hovered===i) { ctx.shadowColor=p.color; ctx.shadowBlur=24; }
+
+      // aneis de Saturno
+      if (p.name==='Saturno') {
+        ctx.save(); ctx.translate(px,py); ctx.rotate(-0.25);
+        ctx.strokeStyle='#e4d19166'; ctx.lineWidth=6;
+        ctx.beginPath(); ctx.ellipse(0,0,p.size+16,5,0,0,Math.PI*2); ctx.stroke();
+        ctx.restore();
+      }
+
+      const g2 = ctx.createRadialGradient(px-p.size*0.35,py-p.size*0.35,1,px,py,p.size);
+      g2.addColorStop(0, lighten(p.color)); g2.addColorStop(1, p.color);
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(px,py,p.size,0,Math.PI*2); ctx.fill();
+
+      ctx.shadowBlur=0;
+
+      // nome do planeta
+      ctx.fillStyle='#ffffffaa'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='center';
+      ctx.fillText(p.name, px, py+p.size+14);
+    }
+    animId=requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function lighten(hex) {
+  const n=parseInt(hex.replace('#',''),16);
+  return `rgb(${Math.min(255,((n>>16)&0xff)+70)},${Math.min(255,((n>>8)&0xff)+70)},${Math.min(255,(n&0xff)+70)})`;
+}
+
+function openPanel(p) {
+  document.getElementById('pp-emoji').textContent = p.emoji;
+  document.getElementById('pp-name').textContent  = p.name;
+  document.getElementById('pp-desc').textContent  = p.desc;
+  document.getElementById('pp-fun').textContent   = p.fun || '';
+  document.getElementById('pp-temp').textContent  = p.temp;
+  document.getElementById('pp-moons').textContent = p.moons;
+  document.getElementById('planet-panel').style.display='block';
+}
+
+function closePlanetPanel() {
+  document.getElementById('planet-panel').style.display='none';
+}
+
+// ══════════════════════════════════════════════
+// QUIZ
+// ══════════════════════════════════════════════
+const QUESTIONS = [
+  { q:'Qual é o maior planeta do Sistema Solar?',        opts:['Saturno','Marte','Júpiter','Terra'],     a:2 },
+  { q:'Qual planeta tem os anéis mais bonitos?',         opts:['Marte','Saturno','Netuno','Júpiter'],    a:1 },
+  { q:'Qual planeta é chamado de Planeta Vermelho?',     opts:['Júpiter','Vênus','Terra','Marte'],       a:3 },
+  { q:'Qual é o planeta mais próximo do Sol?',           opts:['Vênus','Terra','Mercúrio','Marte'],      a:2 },
+  { q:'Quantas luas a Terra tem?',                       opts:['Nenhuma','2 luas','1 lua','3 luas'],     a:2 },
+  { q:'Qual planeta é nossa casa?',                      opts:['Marte','Vênus','Saturno','Terra'],       a:3 },
+  { q:'Qual planeta gira de lado, como uma bola rolando?', opts:['Netuno','Urano','Júpiter','Mercúrio'],a:1 },
+  { q:'O Sol é uma estrela ou um planeta?',              opts:['Um planeta','Uma lua','Uma estrela','Um cometa'], a:2 },
+  { q:'Qual planeta tem 95 luas?',                       opts:['Terra','Saturno','Júpiter','Netuno'],    a:2 },
+  { q:'Qual é o planeta mais quente do Sistema Solar?',  opts:['Mercúrio','Terra','Marte','Vênus'],      a:3 },
+];
+
+let qList=[], qIdx=0, score=0, answered=false;
+
+function shuffle(a) {
+  const b=[...a];
+  for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}
+  return b;
+}
+
+function initQuiz() {
+  qList     = shuffle(QUESTIONS).slice(0,8);
+  qIdx      = 0;
+  score     = 0;
+  answered  = false;
+  document.getElementById('quiz-result').style.display  ='none';
+  document.getElementById('quiz-topbar').style.display  ='flex';
+  document.getElementById('quiz-progress').style.display='block';
+  document.getElementById('quiz-question').style.display='block';
+  document.getElementById('quiz-options').style.display ='grid';
+  showQ();
+}
+
+function showQ() {
+  answered=false;
+  const q=qList[qIdx];
+  document.getElementById('quiz-num').textContent = `Pergunta ${qIdx+1}/${qList.length}`;
+  document.getElementById('quiz-pts').textContent = `⭐ ${score} pontos`;
+  document.getElementById('quiz-progress-bar').style.width = `${(qIdx/qList.length)*100}%`;
+  document.getElementById('quiz-question').textContent = q.q;
+  document.getElementById('quiz-feedback').textContent  = '';
+  document.getElementById('quiz-feedback').style.color  = '#fff';
+  document.getElementById('quiz-next').style.display    = 'none';
+
+  const wrap=document.getElementById('quiz-options');
+  wrap.innerHTML='';
+  q.opts.forEach((opt,i) => {
+    const b=document.createElement('button');
+    b.className='opt-btn'; b.textContent=opt;
+    b.onclick=()=>answer(i,b,q);
+    wrap.appendChild(b);
+  });
+}
+
+function answer(i, btn, q) {
+  if (answered) return;
+  answered=true;
+  document.querySelectorAll('.opt-btn').forEach(b=>b.disabled=true);
+  document.querySelectorAll('.opt-btn')[q.a].classList.add('correct');
+  const fb=document.getElementById('quiz-feedback');
+  if (i===q.a) {
+    score++;
+    fb.textContent='🎉 Muito bem! Acertou!';
+    fb.style.color='#6f6';
+    soundCorrect();
+    confetti(30);
+  } else {
+    btn.classList.add('wrong');
+    fb.textContent='😅 Quase! Veja a resposta certa em verde.';
+    fb.style.color='#f88';
+    soundWrong();
+  }
+  document.getElementById('quiz-pts').textContent=`⭐ ${score} pontos`;
+  document.getElementById('quiz-next').style.display='inline-block';
+}
+
+function nextQuestion() {
+  soundClick();
+  qIdx++;
+  if (qIdx>=qList.length) showResult();
+  else showQ();
+}
+
+function showResult() {
+  document.getElementById('quiz-topbar').style.display  ='none';
+  document.getElementById('quiz-progress').style.display='none';
+  document.getElementById('quiz-question').style.display='none';
+  document.getElementById('quiz-options').style.display ='none';
+  document.getElementById('quiz-feedback').textContent  ='';
+  document.getElementById('quiz-next').style.display    ='none';
+  document.getElementById('quiz-result').style.display  ='block';
+
+  const pct=score/qList.length;
+  let emoji,title,msg,stars;
+
+  if (pct===1)      { emoji='🏆';title='Perfeito!';   msg=`Você acertou tudo! Você é um astronauta de verdade!`; stars='⭐⭐⭐⭐⭐'; soundWin(); confetti(80); }
+  else if (pct>=.75){ emoji='🚀';title='Incrível!';   msg=`Você acertou ${score} de ${qList.length}! Você ama o espaço!`; stars='⭐⭐⭐⭐'; soundWin(); confetti(50); }
+  else if (pct>=.5) { emoji='🌟';title='Muito bem!';  msg=`Você acertou ${score} de ${qList.length}! Continue explorando!`; stars='⭐⭐⭐'; soundCorrect(); }
+  else              { emoji='🌍';title='Continue!';   msg=`Você acertou ${score} de ${qList.length}. Explore os planetas e tente de novo!`; stars='⭐⭐'; }
+
+  document.getElementById('result-big').textContent  =emoji;
+  document.getElementById('result-stars').textContent=stars;
+  document.getElementById('result-title').textContent=title;
+  document.getElementById('result-msg').textContent  =msg;
+}
+
+// ══════════════════════════════════════════════
+// JOGO: ORDEM DOS PLANETAS
+// ══════════════════════════════════════════════
+let orderSelected = []; // índices escolhidos
+let orderDone     = false;
+
+function initOrder() {
+  orderSelected = new Array(8).fill(null);
+  orderDone     = false;
+  document.getElementById('order-check').style.display = 'none';
+  document.getElementById('order-retry').style.display = 'none';
+  document.getElementById('order-msg').textContent     = '';
+  document.getElementById('order-score').textContent   = '';
+
+  // slots (posições 1–8)
+  const slots = document.getElementById('order-slots');
+  slots.innerHTML='';
+  for (let i=0;i<8;i++) {
+    const d=document.createElement('div');
+    d.className='order-slot';
+    d.id=`slot-${i}`;
+    d.innerHTML=`<span class="slot-num">${i+1}º</span>`;
+    d.onclick=()=>removeFromSlot(i);
+    slots.appendChild(d);
+  }
+
+  // choices (embaralhados)
+  const choices=document.getElementById('order-choices');
+  choices.innerHTML='';
+  shuffle(PLANETS).forEach(p => {
+    const d=document.createElement('div');
+    d.className='order-choice';
+    d.id=`choice-${p.order}`;
+    d.innerHTML=`${p.emoji}<span>${p.name}</span>`;
+    d.onclick=()=>placeInSlot(p);
+    choices.appendChild(d);
+  });
+}
+
+function placeInSlot(planet) {
+  if (orderDone) return;
+  soundClick();
+  const slot=orderSelected.indexOf(null);
+  if (slot===-1) return;
+  orderSelected[slot]=planet.order;
+  document.getElementById(`slot-${slot}`).innerHTML=`<span class="slot-num">${slot+1}º</span>${planet.emoji}`;
+  document.getElementById(`slot-${slot}`).classList.add('filled');
+  document.getElementById(`choice-${planet.order}`).classList.add('used');
+
+  if (!orderSelected.includes(null)) {
+    document.getElementById('order-check').style.display='inline-block';
+  }
+}
+
+function removeFromSlot(i) {
+  if (orderDone || orderSelected[i]===null) return;
+  const order=orderSelected[i];
+  orderSelected[i]=null;
+  document.getElementById(`slot-${i}`).innerHTML=`<span class="slot-num">${i+1}º</span>`;
+  document.getElementById(`slot-${i}`).classList.remove('filled','correct','wrong');
+  document.getElementById(`choice-${order}`).classList.remove('used');
+  document.getElementById('order-check').style.display='none';
+}
+
+function checkOrder() {
+  orderDone=true;
+  let correct=0;
+  for (let i=0;i<8;i++) {
+    const s=document.getElementById(`slot-${i}`);
+    if (orderSelected[i]===i+1) { s.classList.add('correct'); correct++; }
+    else                        { s.classList.add('wrong');   }
+  }
+  document.getElementById('order-check').style.display='none';
+  document.getElementById('order-retry').style.display='inline-block';
+
+  const msg=document.getElementById('order-msg');
+  const sc =document.getElementById('order-score');
+  sc.textContent=`✅ Você acertou ${correct} de 8 posições!`;
+
+  if (correct===8) {
+    msg.textContent='🏆 Perfeito! Você sabe a ordem certinha!';
+    msg.style.color='#6f6';
+    soundWin(); confetti(80);
+  } else if (correct>=5) {
+    msg.textContent='🚀 Muito bem! Quase lá!';
+    msg.style.color='#ff6';
+    soundCorrect();
+  } else {
+    msg.textContent='😊 Continue tentando! Explore os planetas para aprender a ordem!';
+    msg.style.color='#f88';
+    soundWrong();
+  }
+
+  // mostrar a ordem correta embaixo
+  sc.textContent += ' | Ordem certa: ☀️ ' + PLANETS.map(p=>p.emoji+p.name).join(' → ');
+}
+
+// iniciar
+showStart();
+</script>
+</body>
+</html>
