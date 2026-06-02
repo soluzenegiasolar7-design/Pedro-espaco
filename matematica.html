@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧮 Pedro Matemático</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',Arial,sans-serif; background:#0a0a2e; color:white; min-height:100vh; overflow-x:hidden; user-select:none; }
+
+/* ── ESTRELAS ── */
+#stars { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+.star { position:absolute; background:white; border-radius:50%; animation:twinkle var(--d) infinite alternate; }
+@keyframes twinkle { from{opacity:.1} to{opacity:.9} }
+
+/* ── TELAS ── */
+.screen { display:none; position:relative; z-index:1; min-height:100vh; flex-direction:column; align-items:center; justify-content:center; padding:1.5rem; }
+.screen.ativa { display:flex; }
+
+/* ── INÍCIO ── */
+#tela-inicio h1 { font-size:3rem; text-shadow:0 0 30px #a29bfe; margin:.4rem 0; }
+#tela-inicio p  { font-size:1.3rem; color:#b2bec3; margin-bottom:2rem; }
+.rocket { font-size:5rem; animation:balanco 1.5s ease-in-out infinite alternate; display:block; }
+@keyframes balanco { from{transform:translateY(0) rotate(-8deg)} to{transform:translateY(-18px) rotate(8deg)} }
+
+/* ── MENU DE TÓPICOS ── */
+#tela-menu h2 { font-size:2rem; color:#fdcb6e; margin-bottom:1.5rem; text-align:center; }
+.topicos { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; max-width:640px; width:100%; }
+@media(min-width:700px){ .topicos{ grid-template-columns:repeat(4,1fr); } }
+.topico-btn {
+  padding:1.2rem .8rem; border:3px solid transparent; border-radius:20px;
+  cursor:pointer; font-size:.95rem; font-weight:bold; text-align:center;
+  transition:transform .15s,box-shadow .15s; line-height:1.4;
+}
+.topico-btn:hover { transform:scale(1.07); box-shadow:0 0 20px #fff4; }
+.topico-btn .t-emoji { font-size:2.2rem; display:block; margin-bottom:.4rem; }
+.topico-btn.concluido::after { content:'✅'; position:absolute; top:6px; right:10px; font-size:1.1rem; }
+.topico-btn { position:relative; }
+
+/* ── JOGO ── */
+#tela-jogo { justify-content:flex-start; padding-top:1rem; }
+#jogo-header { display:flex; align-items:center; justify-content:space-between; width:100%; max-width:680px; margin-bottom:1rem; }
+#jogo-titulo { font-size:1.1rem; font-weight:bold; color:#fdcb6e; }
+#jogo-prog   { font-size:1rem; color:#b2bec3; }
+#jogo-pontos { font-size:1.1rem; }
+#progresso   { width:100%; max-width:680px; height:10px; background:#ffffff18; border-radius:10px; margin-bottom:1.2rem; overflow:hidden; }
+#progresso-bar { height:100%; background:linear-gradient(90deg,#6c5ce7,#fdcb6e); border-radius:10px; transition:width .5s; }
+
+#jogo-visual { margin:0 auto 1.2rem; display:flex; align-items:center; justify-content:center; }
+#jogo-pergunta { font-size:1.4rem; text-align:center; margin-bottom:1.2rem; color:#dfe6e9; line-height:1.5; max-width:600px; }
+#jogo-opcoes  { display:grid; gap:.8rem; width:100%; max-width:600px; }
+.op-btn {
+  padding:1rem 1.5rem; border:3px solid #6c5ce755; border-radius:16px;
+  background:#ffffff0d; color:white; font-size:1.15rem; font-weight:bold;
+  cursor:pointer; transition:all .2s; text-align:center;
+}
+.op-btn:hover:not(:disabled) { background:#6c5ce730; border-color:#6c5ce7; transform:scale(1.03); }
+.op-btn.certa  { background:#00b89440; border-color:#00b894; color:#00b894; animation:pop .35s ease; }
+.op-btn.errada { background:#d63031 30; border-color:#d63031; color:#ff7675; }
+@keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
+
+#jogo-feedback { font-size:1.4rem; font-weight:bold; min-height:2rem; text-align:center; margin-bottom:.5rem; }
+#btn-prox { display:none; margin:0 auto; padding:.9rem 2.5rem; background:linear-gradient(135deg,#6c5ce7,#a29bfe); border:none; border-radius:40px; color:white; font-size:1.1rem; font-weight:bold; cursor:pointer; }
+#btn-voltar-jogo { position:absolute; top:1rem; left:1rem; padding:.5rem 1.2rem; background:#ffffff18; border:2px solid #ffffff33; border-radius:20px; color:white; cursor:pointer; font-size:.9rem; font-weight:bold; }
+
+/* ── RESULTADO ── */
+#tela-resultado { text-align:center; }
+#res-emoji  { font-size:5rem; animation:pop .6s ease; display:block; }
+#res-titulo { font-size:2.2rem; margin:.5rem 0; }
+#res-msg    { color:#b2bec3; font-size:1.1rem; margin-bottom:.5rem; }
+#res-estrelas { font-size:2.8rem; letter-spacing:4px; margin-bottom:1.5rem; }
+.res-btns { display:flex; flex-direction:column; gap:.8rem; align-items:center; }
+
+/* ── BOTÕES GERAIS ── */
+.btn { padding:1rem 2.5rem; font-size:1.1rem; border:none; border-radius:50px; cursor:pointer; font-weight:bold; transition:transform .15s,box-shadow .15s; }
+.btn:hover { transform:scale(1.06); }
+.btn-roxo  { background:linear-gradient(135deg,#6c5ce7,#a29bfe); color:white; box-shadow:0 6px 20px #6c5ce766; }
+.btn-amarelo{ background:linear-gradient(135deg,#fdcb6e,#e17055); color:white; box-shadow:0 6px 20px #fdcb6e66; }
+.btn-verde { background:linear-gradient(135deg,#00b894,#00cec9); color:white; box-shadow:0 6px 20px #00b89466; }
+
+/* ── CONFETTI ── */
+.confetti-p { position:fixed; border-radius:2px; pointer-events:none; z-index:999; animation:cai var(--cd) linear forwards; }
+@keyframes cai { from{transform:translateY(-20px) rotate(0deg);opacity:1} to{transform:translateY(110vh) rotate(720deg);opacity:0} }
+
+/* ── ÁBACO ── */
+.abaco-interativo { display:flex; gap:1.5rem; align-items:flex-end; justify-content:center; background:#1a1a4e; border-radius:20px; padding:1.2rem 2rem; }
+.coluna-abaco { display:flex; flex-direction:column; align-items:center; gap:.3rem; }
+.coluna-abaco .col-label { font-size:1rem; color:#fdcb6e; font-weight:bold; margin-top:.5rem; }
+.haste { width:14px; background:#8e44ad; border-radius:7px; min-height:160px; display:flex; flex-direction:column-reverse; align-items:center; gap:4px; padding:6px 0; cursor:pointer; }
+.conta { width:28px; height:20px; border-radius:10px; background:#e74c3c; box-shadow:0 2px 4px #0008; transition:all .15s; }
+.conta.vazia { background:#ffffff10; border:2px dashed #ffffff20; }
+
+/* ── DECOMPOSIÇÃO VISUAL ── */
+.decompoe { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.6rem; font-size:1.5rem; font-weight:bold; background:#1a1a4e; border-radius:16px; padding:1.2rem; }
+.decompoe .num { color:#fdcb6e; font-size:2rem; }
+.decompoe .eq  { color:#b2bec3; }
+.decompoe .parte { background:#6c5ce733; border:2px solid #6c5ce7; border-radius:10px; padding:.3rem .8rem; color:#a29bfe; min-width:60px; text-align:center; }
+.decompoe .lacuna { background:#ffffff0d; border:2px dashed #ffffff44; border-radius:10px; padding:.3rem .8rem; min-width:80px; text-align:center; color:#636e72; }
+
+/* ── ADIÇÃO VERTICAL ── */
+.adicao-box { background:#1a1a4e; border-radius:16px; padding:1.5rem 2rem; font-size:2.2rem; font-family:monospace; text-align:right; line-height:1.8; min-width:200px; }
+.adicao-box .carry { font-size:1rem; color:#fdcb6e; text-align:right; }
+.adicao-box .linha { border-top:3px solid #6c5ce7; margin:.2rem 0; }
+</style>
+</head>
+<body>
+<div id="stars"></div>
+
+<!-- ══════════ INÍCIO ══════════ -->
+<div id="tela-inicio" class="screen ativa">
+  <span class="rocket">🧮</span>
+  <h1>Pedro Matemático!</h1>
+  <p>Vamos aprender Matemática? 🌟</p>
+  <button class="btn btn-roxo" onclick="ir('tela-menu')">▶ Começar!</button>
+</div>
+
+<!-- ══════════ MENU ══════════ -->
+<div id="tela-menu" class="screen">
+  <h2>🎮 Escolha um tema!</h2>
+  <div class="topicos" id="grade-topicos"></div>
+</div>
+
+<!-- ══════════ JOGO ══════════ -->
+<div id="tela-jogo" class="screen">
+  <button id="btn-voltar-jogo" onclick="ir('tela-menu')">← Menu</button>
+  <div id="jogo-header">
+    <span id="jogo-titulo"></span>
+    <span id="jogo-prog"></span>
+    <span id="jogo-pontos">⭐ 0</span>
+  </div>
+  <div id="progresso"><div id="progresso-bar" style="width:0%"></div></div>
+  <div id="jogo-visual"></div>
+  <div id="jogo-pergunta"></div>
+  <div id="jogo-opcoes"></div>
+  <div id="jogo-feedback"></div>
+  <button id="btn-prox" class="btn btn-roxo" onclick="proxima()">Próxima ➡️</button>
+</div>
+
+<!-- ══════════ RESULTADO ══════════ -->
+<div id="tela-resultado" class="screen">
+  <span id="res-emoji"></span>
+  <div id="res-estrelas"></div>
+  <div id="res-titulo"></div>
+  <p id="res-msg"></p>
+  <div class="res-btns">
+    <button class="btn btn-roxo" onclick="reJogar()">🔄 Jogar de novo</button>
+    <button class="btn btn-amarelo" onclick="ir('tela-menu')">🏠 Escolher outro tema</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// ESTRELAS
+// ══════════════════════════════════════════
+(function(){
+  const c=document.getElementById('stars');
+  for(let i=0;i<150;i++){
+    const s=document.createElement('div'); s.className='star';
+    const sz=Math.random()*2.5+.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${(Math.random()*2+.8).toFixed(1)}s`;
+    c.appendChild(s);
+  }
+})();
+
+// ══════════════════════════════════════════
+// SOM
+// ══════════════════════════════════════════
+const AC = window.AudioContext ? new AudioContext() : null;
+function beep(f,d,t='sine',v=.25){
+  if(!AC)return; const o=AC.createOscillator(),g=AC.createGain();
+  o.connect(g);g.connect(AC.destination); o.type=t; o.frequency.value=f;
+  g.gain.setValueAtTime(v,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);
+  o.start();o.stop(AC.currentTime+d);
+}
+function somCerto()  { beep(523,.1);setTimeout(()=>beep(659,.1),110);setTimeout(()=>beep(784,.2),220); }
+function somErrado() { beep(220,.3,'sawtooth',.2); }
+function somVitoria(){ [523,587,659,784,880].forEach((f,i)=>setTimeout(()=>beep(f,.18),i*100)); }
+
+// ══════════════════════════════════════════
+// CONFETTI
+// ══════════════════════════════════════════
+function confetti(n=50){
+  const cols=['#fdcb6e','#6c5ce7','#00b894','#e17055','#fd79a8','#74b9ff'];
+  for(let i=0;i<n;i++){
+    const d=document.createElement('div'); d.className='confetti-p';
+    const sz=Math.random()*10+6;
+    d.style.cssText=`left:${Math.random()*100}vw;top:-20px;width:${sz}px;height:${sz}px;background:${cols[i%cols.length]};--cd:${(Math.random()*1.5+.8).toFixed(1)}s;animation-delay:${(Math.random()*.4).toFixed(2)}s`;
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(),2500);
+  }
+}
+
+// ══════════════════════════════════════════
+// NAVEGAÇÃO
+// ══════════════════════════════════════════
+function ir(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('ativa'));
+  document.getElementById(id).classList.add('ativa');
+}
+
+// ══════════════════════════════════════════
+// TÓPICOS
+// ══════════════════════════════════════════
+const TOPICOS = [
+  { id:'figuras',    nome:'Figuras Geométricas',         emoji:'🔷', cor:'#6c5ce7,#a29bfe' },
+  { id:'linhas',     nome:'Linhas Retas e Curvas',        emoji:'〰️', cor:'#00b894,#00cec9' },
+  { id:'lados',      nome:'Lados e Vértices',             emoji:'📐', cor:'#fd79a8,#e84393' },
+  { id:'numeros',    nome:'Números maiores que 100',      emoji:'🔢', cor:'#fdcb6e,#e17055' },
+  { id:'centenas',   nome:'Centenas Exatas',              emoji:'💯', cor:'#e17055,#d63031' },
+  { id:'abaco',      nome:'Número no Ábaco',              emoji:'🧮', cor:'#74b9ff,#0984e3' },
+  { id:'decompoe',   nome:'Composição e Decomposição',    emoji:'🔀', cor:'#55efc4,#00b894' },
+  { id:'adicao',     nome:'Adição com Reagrupamento',     emoji:'➕', cor:'#a29bfe,#6c5ce7' },
+];
+
+const concluidos = {};
+
+(function montaMenu(){
+  const g = document.getElementById('grade-topicos');
+  TOPICOS.forEach(t=>{
+    const b=document.createElement('button');
+    b.className='topico-btn'+(concluidos[t.id]?' concluido':'');
+    b.style.background=`linear-gradient(135deg,${t.cor})`;
+    b.innerHTML=`<span class="t-emoji">${t.emoji}</span>${t.nome}`;
+    b.onclick=()=>iniciarJogo(t.id);
+    g.appendChild(b);
+  });
+})();
+
+// ══════════════════════════════════════════
+// ESTADO DO JOGO
+// ══════════════════════════════════════════
+let topicoAtual=null, perguntas=[], pIdx=0, pontos=0, respondido=false;
+
+// ══════════════════════════════════════════
+// SVG HELPERS
+// ══════════════════════════════════════════
+function poligonoRegular(n,cx,cy,r,rot=0){
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const a=(i*2*Math.PI/n)-Math.PI/2+rot;
+    pts.push(`${(cx+r*Math.cos(a)).toFixed(1)},${(cy+r*Math.sin(a)).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+
+function svgFigura(tipo,cor='#6c5ce7',w=120,h=120){
+  const cx=w/2,cy=h/2,r=w*.42;
+  let formas='';
+  switch(tipo){
+    case 'circulo':   formas=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${cor}"/>`; break;
+    case 'oval':      formas=`<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r*.6}" fill="${cor}"/>`; break;
+    case 'triangulo': formas=`<polygon points="${poligonoRegular(3,cx,cy,r)}" fill="${cor}"/>`; break;
+    case 'quadrado':  { const s=r*1.5,o=(w-s)/2; formas=`<rect x="${o}" y="${o}" width="${s}" height="${s}" fill="${cor}" rx="3"/>`; break; }
+    case 'retangulo': formas=`<rect x="${w*.05}" y="${h*.28}" width="${w*.9}" height="${h*.45}" fill="${cor}" rx="3"/>`; break;
+    case 'pentagono': formas=`<polygon points="${poligonoRegular(5,cx,cy,r)}" fill="${cor}"/>`; break;
+    case 'hexagono':  formas=`<polygon points="${poligonoRegular(6,cx,cy,r)}" fill="${cor}"/>`; break;
+    case 'losango':   formas=`<polygon points="${cx},${cy-r} ${cx+r*.75},${cy} ${cx},${cy+r} ${cx-r*.75},${cy}" fill="${cor}"/>`; break;
+  }
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${formas}</svg>`;
+}
+
+const FIGURAS = {
+  circulo:   { nome:'Círculo',    lados:0, vertices:0 },
+  oval:      { nome:'Oval',       lados:0, vertices:0 },
+  triangulo: { nome:'Triângulo',  lados:3, vertices:3 },
+  quadrado:  { nome:'Quadrado',   lados:4, vertices:4 },
+  retangulo: { nome:'Retângulo',  lados:4, vertices:4 },
+  pentagono: { nome:'Pentágono',  lados:5, vertices:5 },
+  hexagono:  { nome:'Hexágono',   lados:6, vertices:6 },
+  losango:   { nome:'Losango',    lados:4, vertices:4 },
+};
+const TIPOS_FIG = Object.keys(FIGURAS);
+const CORES_FIG = ['#6c5ce7','#e17055','#00b894','#fd79a8','#fdcb6e','#74b9ff','#a29bfe','#55efc4'];
+
+const SVG_LINHAS = [
+  { tipo:'reta',  svg:`<svg width="200" height="100" viewBox="0 0 200 100"><line x1="20" y1="50" x2="180" y2="50" stroke="white" stroke-width="5" stroke-linecap="round"/></svg>`, label:'Linha horizontal' },
+  { tipo:'reta',  svg:`<svg width="200" height="100" viewBox="0 0 200 100"><line x1="100" y1="8" x2="100" y2="92" stroke="white" stroke-width="5" stroke-linecap="round"/></svg>`, label:'Linha vertical' },
+  { tipo:'reta',  svg:`<svg width="200" height="100" viewBox="0 0 200 100"><line x1="20" y1="85" x2="180" y2="15" stroke="white" stroke-width="5" stroke-linecap="round"/></svg>`, label:'Linha diagonal' },
+  { tipo:'reta',  svg:`<svg width="200" height="100" viewBox="0 0 200 100"><line x1="20" y1="15" x2="180" y2="80" stroke="white" stroke-width="5" stroke-linecap="round"/></svg>`, label:'Linha inclinada' },
+  { tipo:'curva', svg:`<svg width="200" height="100" viewBox="0 0 200 100"><path d="M20,80 Q100,5 180,80" fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/></svg>`, label:'Curva simples' },
+  { tipo:'curva', svg:`<svg width="200" height="100" viewBox="0 0 200 100"><path d="M20,70 C60,0 130,100 180,30" fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/></svg>`, label:'Curva S' },
+  { tipo:'curva', svg:`<svg width="200" height="100" viewBox="0 0 200 100"><path d="M20,50 Q50,10 80,50 Q110,90 140,50 Q165,15 180,50" fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/></svg>`, label:'Ondulada' },
+  { tipo:'curva', svg:`<svg width="200" height="100" viewBox="0 0 200 100"><circle cx="100" cy="50" r="40" fill="none" stroke="white" stroke-width="5"/></svg>`, label:'Curva fechada' },
+];
+
+function svgAbaco(c,d,u,w=220,h=190){
+  const cols=[{n:c,l:'C',x:50},{n:d,l:'D',x:110},{n:u,l:'U',x:170}];
+  let s=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+  s+=`<rect x="20" y="165" width="180" height="10" rx="5" fill="#8e44ad"/>`;
+  cols.forEach(({n,l,x})=>{
+    s+=`<rect x="${x-3}" y="15" width="6" height="155" rx="3" fill="#bdc3c7"/>`;
+    for(let i=0;i<9;i++){
+      const y=155-i*16;
+      s+=`<ellipse cx="${x}" cy="${y}" rx="14" ry="10" fill="${i<n?'#e74c3c':'#ffffff10'}" stroke="${i<n?'#c0392b':'#ffffff15'}" stroke-width="1.5"/>`;
+    }
+    s+=`<text x="${x}" y="${h-2}" text-anchor="middle" fill="#fdcb6e" font-size="13" font-weight="bold">${l}</text>`;
+  });
+  s+=`</svg>`; return s;
+}
+
+// ══════════════════════════════════════════
+// GERADORES DE PERGUNTAS
+// ══════════════════════════════════════════
+function embaralha(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function escolhe(arr,n){ return embaralha(arr).slice(0,n); }
+function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function opcoes4(correto,pool){ const op=new Set([correto]); while(op.size<4){ op.add(pool[Math.floor(Math.random()*pool.length)]); } return embaralha([...op]); }
+
+// ─ FIGURAS GEOMÉTRICAS ─
+function gerarFiguras(){
+  const qs=[];
+  const tipos=embaralha([...TIPOS_FIG]);
+  tipos.slice(0,8).forEach((tipo,i)=>{
+    const cor=CORES_FIG[i%CORES_FIG.length];
+    const nomes=TIPOS_FIG.map(t=>FIGURAS[t].nome);
+    const correto=FIGURAS[tipo].nome;
+    qs.push({
+      visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.5rem;">${svgFigura(tipo,cor,140,140)}</div>`,
+      pergunta:'Que figura geométrica é essa?',
+      opcoes:opcoes4(correto,nomes),
+      resposta:correto,
+      tipo:'escolha'
+    });
+  });
+  return qs;
+}
+
+// ─ LINHAS ─
+function gerarLinhas(){
+  return embaralha(SVG_LINHAS).slice(0,8).map(l=>({
+    visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.5rem;">${l.svg}</div>`,
+    pergunta:'Esta linha é reta ou curva?',
+    opcoes:embaralha(['Linha Reta','Linha Curva']),
+    resposta: l.tipo==='reta'?'Linha Reta':'Linha Curva',
+    tipo:'escolha2'
+  }));
+}
+
+// ─ LADOS E VÉRTICES ─
+function gerarLados(){
+  const qs=[];
+  const tipos=embaralha([...TIPOS_FIG]);
+  tipos.slice(0,8).forEach((tipo,i)=>{
+    const fig=FIGURAS[tipo];
+    const cor=CORES_FIG[i%CORES_FIG.length];
+    const pedeLados=Math.random()>.4;
+    const resposta=pedeLados?fig.lados:fig.vertices;
+    const nums=[0,3,4,5,6];
+    qs.push({
+      visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.5rem;">${svgFigura(tipo,cor,130,130)}</div>`,
+      pergunta: pedeLados
+        ? `Quantos lados tem o ${fig.nome}?`
+        : `Quantos vértices tem o ${fig.nome}?`,
+      opcoes: opcoes4(String(resposta), nums.map(String)),
+      resposta: String(resposta),
+      tipo:'escolha'
+    });
+  });
+  return qs;
+}
+
+// ─ NÚMEROS > 100 ─
+function nomePorExtenso(n){
+  const centenas=['','cem','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+  const dezenas=['','dez','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+  const especiais=['onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+  const unidades=['','um','dois','três','quatro','cinco','seis','sete','oito','nove'];
+  if(n===100) return 'cem';
+  if(n===1000) return 'mil';
+  const c=Math.floor(n/100), d=Math.floor((n%100)/10), u=n%10;
+  const partes=[];
+  if(c>0) partes.push(c===1&&(d>0||u>0)?'cento':centenas[c]);
+  if(d===1&&u>1) partes.push(especiais[u-1]);
+  else { if(d>0) partes.push(dezenas[d]); if(u>0) partes.push(unidades[u]); }
+  return partes.join(' e ');
+}
+
+function gerarNumeros(){
+  const qs=[];
+  const numeros=[]; const usados=new Set();
+  while(numeros.length<8){
+    const n=rand(101,999); if(!usados.has(n)){ usados.add(n); numeros.push(n); }
+  }
+  numeros.forEach(n=>{
+    if(Math.random()>.5){
+      // mostrar número → qual o nome?
+      const pool=[n]; while(pool.length<4){const r=rand(101,999);if(!pool.includes(r))pool.push(r);}
+      qs.push({
+        visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.5rem;font-size:4rem;font-weight:bold;color:#fdcb6e;min-width:200px;text-align:center;">${n}</div>`,
+        pergunta:'Como se lê esse número?',
+        opcoes:embaralha(pool.map(nomePorExtenso)),
+        resposta:nomePorExtenso(n),
+        tipo:'escolha'
+      });
+    } else {
+      // mostrar nome → qual o número?
+      const pool=[n]; while(pool.length<4){const r=rand(101,999);if(!pool.includes(r))pool.push(r);}
+      qs.push({
+        visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.2rem 2rem;font-size:1.5rem;font-weight:bold;color:#a29bfe;text-align:center;">${nomePorExtenso(n).toUpperCase()}</div>`,
+        pergunta:'Qual é esse número?',
+        opcoes:embaralha(pool.map(String)),
+        resposta:String(n),
+        tipo:'escolha'
+      });
+    }
+  });
+  return qs;
+}
+
+// ─ CENTENAS EXATAS ─
+function svgCentenas(c){
+  const cols=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e91e8c','#00bcd4'];
+  let s=`<svg width="${Math.min(c*70+20,380)}" height="80" viewBox="0 0 ${c*70+20} 80">`;
+  for(let i=0;i<c;i++){
+    const x=10+i*68;
+    s+=`<rect x="${x}" y="10" width="58" height="58" fill="${cols[i]}" rx="10"/>`;
+    s+=`<text x="${x+29}" y="44" text-anchor="middle" fill="white" font-size="20" font-weight="bold">100</text>`;
+  }
+  s+=`</svg>`; return s;
+}
+
+function gerarCentenas(){
+  const qs=[];
+  for(let i=0;i<8;i++){
+    const c=rand(1,9);
+    const num=c*100;
+    if(i%2===0){
+      // mostrar caixas → qual número?
+      const pool=[num]; while(pool.length<4){const r=rand(1,9)*100;if(!pool.includes(r))pool.push(r);}
+      qs.push({
+        visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.2rem;overflow-x:auto;">${svgCentenas(c)}</div>`,
+        pergunta:'Quantas unidades representam essas centenas?',
+        opcoes:embaralha(pool.map(String)),
+        resposta:String(num),
+        tipo:'escolha'
+      });
+    } else {
+      // mostrar número → quantas centenas?
+      qs.push({
+        visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.5rem;font-size:4rem;font-weight:bold;color:#fdcb6e;text-align:center;">${num}</div>`,
+        pergunta:'Quantas centenas exatas tem esse número?',
+        opcoes:embaralha([c,rand(1,9),rand(1,9),rand(1,9)].map(String).filter((v,i,a)=>a.indexOf(v)===i).slice(0,4)),
+        resposta:String(c),
+        tipo:'escolha'
+      });
+    }
+  }
+  return qs;
+}
+
+// ─ ÁBACO ─
+function gerarAbaco(){
+  const qs=[];
+  const usados=new Set();
+  while(qs.length<8){
+    const c=rand(0,9),d=rand(0,9),u=rand(0,9);
+    const n=c*100+d*10+u;
+    if(usados.has(n)||n<10) continue;
+    usados.add(n);
+    const pool=[n]; while(pool.length<4){const r=rand(10,999);if(!pool.includes(r))pool.push(r);}
+    qs.push({
+      visual:`<div style="background:#1a1a4e;border-radius:20px;padding:1.2rem;">${svgAbaco(c,d,u)}</div>`,
+      pergunta:'Que número o ábaco está mostrando?',
+      opcoes:embaralha(pool.map(String)),
+      resposta:String(n),
+      tipo:'escolha'
+    });
+  }
+  return qs;
+}
+
+// ─ DECOMPOSIÇÃO ─
+function gerarDecompoe(){
+  const qs=[];
+  const usados=new Set();
+  while(qs.length<8){
+    const c=rand(1,9),d=rand(0,9),u=rand(0,9);
+    const n=c*100+d*10+u;
+    if(usados.has(n)) continue;
+    usados.add(n);
+    const cent=c*100, dez=d*10;
+    const modo=rand(1,3);
+    if(modo===1){
+      // n = ___ + dez + u  →  encontre a centena
+      const pool=[cent]; while(pool.length<4){const r=rand(1,9)*100;if(!pool.includes(r))pool.push(r);}
+      qs.push({
+        visual:`<div class="decompoe"><span class="num">${n}</span><span class="eq"> = </span><span class="lacuna">?</span><span class="eq"> + </span><span class="parte">${dez}</span><span class="eq"> + </span><span class="parte">${u}</span></div>`,
+        pergunta:'Qual parte está faltando na decomposição?',
+        opcoes:embaralha(pool.map(String)),
+        resposta:String(cent),
+        tipo:'escolha'
+      });
+    } else if(modo===2){
+      // n = cent + ___ + u  →  encontre dezena
+      const pool=[dez]; while(pool.length<4){const r=rand(0,9)*10;if(!pool.includes(r))pool.push(r);}
+      qs.push({
+        visual:`<div class="decompoe"><span class="num">${n}</span><span class="eq"> = </span><span class="parte">${cent}</span><span class="eq"> + </span><span class="lacuna">?</span><span class="eq"> + </span><span class="parte">${u}</span></div>`,
+        pergunta:'Qual parte está faltando na decomposição?',
+        opcoes:embaralha(pool.map(String)),
+        resposta:String(dez),
+        tipo:'escolha'
+      });
+    } else {
+      // cent + dez + u = ___  →  encontre o número
+      const pool=[n]; while(pool.length<4){const r=rand(100,999);if(!pool.includes(r))pool.push(r);}
+      qs.push({
+        visual:`<div class="decompoe"><span class="parte">${cent}</span><span class="eq"> + </span><span class="parte">${dez}</span><span class="eq"> + </span><span class="parte">${u}</span><span class="eq"> = </span><span class="lacuna">?</span></div>`,
+        pergunta:'Qual número resulta dessa composição?',
+        opcoes:embaralha(pool.map(String)),
+        resposta:String(n),
+        tipo:'escolha'
+      });
+    }
+  }
+  return qs;
+}
+
+// ─ ADIÇÃO COM REAGRUPAMENTO ─
+function svgAdicao(a,b,res,carry){
+  const dezA=Math.floor(a/10), uA=a%10;
+  const dezB=Math.floor(b/10), uB=b%10;
+  const uTotal=uA+uB, carryU=uTotal>=10?1:0;
+  const dezTotal=dezA+dezB+carryU;
+  const carryD=dezTotal>=10?1:0;
+
+  const centRes=Math.floor(res/100);
+  const dezRes=Math.floor((res%100)/10);
+  const uRes=res%10;
+
+  let html=`<div class="adicao-box">`;
+  if(carry){
+    html+=`<div class="carry">`;
+    if(carryD) html+=`<span style="margin-right:${centRes>0?'2.5rem':'1.5rem'}">1</span>`;
+    if(carryU) html+=`<span>1</span>`;
+    html+=`</div>`;
+  }
+  html+=`<div>${a}</div>`;
+  html+=`<div>+ ${b}</div>`;
+  html+=`<div class="linha"></div>`;
+  html+=`<div style="color:#00b894">${res}</div>`;
+  html+=`</div>`;
+  return html;
+}
+
+function gerarAdicao(){
+  const qs=[];
+  const pares=[];
+  while(pares.length<8){
+    let a,b;
+    if(pares.length<4){
+      // 2 dígitos + 2 dígitos com reagrupamento
+      a=rand(15,85); b=rand(15,85);
+      const uA=a%10, uB=b%10;
+      if(uA+uB<10) continue; // precisa ter reagrupamento
+    } else {
+      // 3 dígitos + 2 dígitos com reagrupamento
+      a=rand(100,850); b=rand(15,99);
+      const uA=a%10, uB=b%10;
+      if(uA+uB<10) continue;
+    }
+    pares.push([a,b]);
+  }
+  pares.forEach(([a,b])=>{
+    const res=a+b;
+    const pool=[res]; while(pool.length<4){const r=res+rand(-30,30);if(r>0&&!pool.includes(r))pool.push(r);}
+    qs.push({
+      visual:svgAdicao(a,b,res,true),
+      pergunta:`Quanto é ${a} + ${b}?`,
+      opcoes:embaralha(pool.map(String)),
+      resposta:String(res),
+      tipo:'escolha'
+    });
+  });
+  return qs;
+}
+
+// ══════════════════════════════════════════
+// INICIAR JOGO
+// ══════════════════════════════════════════
+function iniciarJogo(id){
+  topicoAtual=id; pIdx=0; pontos=0; respondido=false;
+  const t=TOPICOS.find(x=>x.id===id);
+  document.getElementById('jogo-titulo').textContent=t.emoji+' '+t.nome;
+
+  switch(id){
+    case 'figuras':  perguntas=gerarFiguras(); break;
+    case 'linhas':   perguntas=gerarLinhas(); break;
+    case 'lados':    perguntas=gerarLados(); break;
+    case 'numeros':  perguntas=gerarNumeros(); break;
+    case 'centenas': perguntas=gerarCentenas(); break;
+    case 'abaco':    perguntas=gerarAbaco(); break;
+    case 'decompoe': perguntas=gerarDecompoe(); break;
+    case 'adicao':   perguntas=gerarAdicao(); break;
+  }
+  ir('tela-jogo');
+  mostrarPergunta();
+}
+
+// ══════════════════════════════════════════
+// MOSTRAR PERGUNTA
+// ══════════════════════════════════════════
+function mostrarPergunta(){
+  respondido=false;
+  const q=perguntas[pIdx];
+  const total=perguntas.length;
+
+  document.getElementById('jogo-prog').textContent=`${pIdx+1}/${total}`;
+  document.getElementById('jogo-pontos').textContent=`⭐ ${pontos}`;
+  document.getElementById('progresso-bar').style.width=`${(pIdx/total)*100}%`;
+  document.getElementById('jogo-visual').innerHTML=q.visual;
+  document.getElementById('jogo-pergunta').textContent=q.pergunta;
+  document.getElementById('jogo-feedback').textContent='';
+  document.getElementById('btn-prox').style.display='none';
+
+  const wrap=document.getElementById('jogo-opcoes');
+  wrap.innerHTML='';
+  const cols=q.tipo==='escolha2'?2:2;
+  wrap.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  q.opcoes.forEach(op=>{
+    const b=document.createElement('button');
+    b.className='op-btn'; b.textContent=op;
+    b.onclick=()=>responder(op,b,q);
+    wrap.appendChild(b);
+  });
+}
+
+// ══════════════════════════════════════════
+// RESPONDER
+// ══════════════════════════════════════════
+function responder(escolha,btn,q){
+  if(respondido) return;
+  respondido=true;
+  document.querySelectorAll('.op-btn').forEach(b=>b.disabled=true);
+
+  const certa=escolha===q.resposta;
+  const fb=document.getElementById('jogo-feedback');
+
+  // marca certa sempre
+  document.querySelectorAll('.op-btn').forEach(b=>{
+    if(b.textContent===q.resposta) b.classList.add('certa');
+  });
+
+  if(certa){
+    pontos++;
+    btn.classList.add('certa');
+    fb.textContent='🎉 Muito bem! Acertou!';
+    fb.style.color='#00b894';
+    somCerto();
+    confetti(25);
+  } else {
+    btn.classList.add('errada');
+    fb.textContent='😊 Quase! A resposta certa está em verde.';
+    fb.style.color='#fd79a8';
+    somErrado();
+  }
+
+  document.getElementById('jogo-pontos').textContent=`⭐ ${pontos}`;
+  document.getElementById('btn-prox').style.display='block';
+}
+
+// ══════════════════════════════════════════
+// PRÓXIMA
+// ══════════════════════════════════════════
+function proxima(){
+  pIdx++;
+  if(pIdx>=perguntas.length) mostrarResultado();
+  else mostrarPergunta();
+}
+
+// ══════════════════════════════════════════
+// RESULTADO
+// ══════════════════════════════════════════
+function mostrarResultado(){
+  concluidos[topicoAtual]=true;
+  document.querySelectorAll('.topico-btn').forEach((b,i)=>{
+    if(TOPICOS[i].id===topicoAtual) b.classList.add('concluido');
+  });
+
+  const total=perguntas.length, pct=pontos/total;
+  let emoji,titulo,msg,estrelas;
+
+  if(pct===1)     { emoji='🏆';titulo='Perfeito!';    msg=`Você acertou tudo! ${pontos}/${total}`;  estrelas='⭐⭐⭐⭐⭐'; somVitoria(); confetti(80); }
+  else if(pct>=.75){ emoji='🚀';titulo='Incrível!';   msg=`Você acertou ${pontos} de ${total}!`;   estrelas='⭐⭐⭐⭐'; somVitoria(); confetti(50); }
+  else if(pct>=.5) { emoji='😊';titulo='Muito bem!';  msg=`Você acertou ${pontos} de ${total}!`;   estrelas='⭐⭐⭐'; somCerto(); }
+  else             { emoji='💪';titulo='Continue!';   msg=`Acertou ${pontos} de ${total}. Tente de novo!`; estrelas='⭐⭐'; }
+
+  document.getElementById('res-emoji').textContent=emoji;
+  document.getElementById('res-estrelas').textContent=estrelas;
+  document.getElementById('res-titulo').textContent=titulo;
+  document.getElementById('res-msg').textContent=msg;
+  ir('tela-resultado');
+}
+
+function reJogar(){ iniciarJogo(topicoAtual); }
+</script>
+</body>
+</html>
