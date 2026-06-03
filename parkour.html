@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🏃 Parkour Runner</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; overflow:hidden; font-family:'Segoe UI',Arial,sans-serif; }
+  canvas { display:block; }
+  #ui { position:fixed; top:0; left:0; right:0; bottom:0; pointer-events:none; z-index:5; }
+
+  /* Mobile controls */
+  #ctrl { position:fixed; bottom:0; left:0; right:0; height:160px; display:none; z-index:10; }
+  .cb {
+    position:absolute; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:1.6rem; pointer-events:all; user-select:none; -webkit-user-select:none;
+    background:rgba(255,255,255,.15); border:3px solid rgba(255,255,255,.3); cursor:pointer;
+    transition:background .1s;
+  }
+  .cb:active { background:rgba(255,255,255,.35); }
+  #bl { width:70px; height:70px; bottom:50px; left:20px; }
+  #br { width:70px; height:70px; bottom:50px; left:105px; }
+  #bj { width:85px; height:85px; bottom:45px; right:20px; background:rgba(80,220,120,.25); border-color:rgba(80,220,120,.5); font-size:2rem; }
+  #bd { width:65px; height:65px; bottom:58px; right:120px; background:rgba(80,120,255,.25); border-color:rgba(80,120,255,.5); }
+  @media(max-width:900px){ #ctrl{ display:block; } canvas{ touch-action:none; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ctrl">
+  <div class="cb" id="bl">◀</div>
+  <div class="cb" id="br">▶</div>
+  <div class="cb" id="bj">↑</div>
+  <div class="cb" id="bd">⚡</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  SETUP
+// ══════════════════════════════════════════════════
+const C = document.getElementById('c');
+const ctx = C.getContext('2d');
+let W = C.width  = window.innerWidth;
+let H = C.height = window.innerHeight;
+window.addEventListener('resize', ()=>{ W=C.width=window.innerWidth; H=C.height=window.innerHeight; });
+
+// ══════════════════════════════════════════════════
+//  INPUT
+// ══════════════════════════════════════════════════
+const keys = new Set();
+const jp   = new Set(); // just pressed this frame
+let touchL=false, touchR=false, touchJ=false, touchD=false;
+
+document.addEventListener('keydown', e=>{
+  if(!keys.has(e.code)) jp.add(e.code);
+  keys.add(e.code);
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+document.addEventListener('keyup', e=> keys.delete(e.code));
+
+function setupTouch(id, setter){
+  const el=document.getElementById(id);
+  el.addEventListener('touchstart', e=>{ setter(true); e.preventDefault(); }, {passive:false});
+  el.addEventListener('touchend',   e=>{ setter(false); e.preventDefault(); }, {passive:false});
+}
+setupTouch('bl', v=>touchL=v);
+setupTouch('br', v=>touchR=v);
+setupTouch('bj', v=>{ if(v) jp.add('jump_touch'); touchJ=v; });
+setupTouch('bd', v=>{ if(v) jp.add('dash_touch'); touchD=v; });
+
+const LEFT  = ()=> keys.has('ArrowLeft')  || keys.has('KeyA') || touchL;
+const RIGHT = ()=> keys.has('ArrowRight') || keys.has('KeyD') || touchR;
+const JUMP  = ()=> jp.has('Space') || jp.has('ArrowUp') || jp.has('KeyW') || jp.has('jump_touch');
+const DASH  = ()=> jp.has('ShiftLeft') || jp.has('ShiftRight') || jp.has('KeyQ') || jp.has('dash_touch');
+
+// ══════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════
+const G       = 0.55;
+const MAXFALL = 18;
+const SPD     = 5.5;
+const FRIC    = 0.80;
+const AIRFRIC = 0.92;
+const JF      = -13;
+const WJX     = 8;
+const WJY     = -11;
+const WSLIDE  = 1.8;
+const DASHF   = 16;
+const DASHMS  = 150;
+const COYOTE  = 8;
+
+// ══════════════════════════════════════════════════
+//  LEVELS
+// ══════════════════════════════════════════════════
+const LEVELS = [
+  {
+    name:'Fase 1 — Telhados',
+    skyA:'#0a0520', skyB:'#1a0a3a',
+    platforms:[
+      // chão inicial
+      {x:0,   y:520, w:320, h:30, c:'#4a4a6a'},
+      // série de saltos
+      {x:380, y:490, w:130, h:20, c:'#5a5a7a'},
+      {x:570, y:450, w:110, h:20, c:'#5a5a7a'},
+      {x:740, y:410, w:120, h:20, c:'#6a5a8a'},
+      {x:920, y:370, w:100, h:20, c:'#6a5a8a'},
+      // plataforma alta
+      {x:1080,y:310, w:140, h:20, c:'#7a6a9a'},
+      // descida
+      {x:1290,y:360, w:100, h:20, c:'#6a5a8a'},
+      {x:1450,y:410, w:120, h:20, c:'#5a5a7a'},
+      // reta final
+      {x:1630,y:380, w:90,  h:20, c:'#7a6a9a'},
+      {x:1780,y:340, w:110, h:20, c:'#8a7aaa'},
+      {x:1950,y:370, w:350, h:20, c:'#4a4a6a'}, // chegada
+    ],
+    start:{x:60, y:470},
+    finish:{x:2230, y:340},
+    length:2400,
+  },
+  {
+    name:'Fase 2 — Entre Arranha-Céus',
+    skyA:'#020818', skyB:'#0a1a40',
+    platforms:[
+      {x:0,   y:530, w:280, h:25, c:'#3a4a5a'},
+      {x:340, y:490, w:80,  h:20, c:'#4a5a6a'},
+      // parede para wall-jump
+      {x:490, y:280, w:20,  h:230, c:'#5a6a7a'},
+      {x:570, y:280, w:20,  h:230, c:'#5a6a7a'},
+      {x:620, y:390, w:90,  h:20, c:'#4a5a6a'},
+      {x:770, y:340, w:80,  h:20, c:'#5a6a7a'},
+      // outra seção de wall-jump
+      {x:920, y:200, w:20,  h:300, c:'#6a7a8a'},
+      {x:1000,y:200, w:20,  h:300, c:'#6a7a8a'},
+      {x:1060,y:300, w:100, h:20, c:'#5a6a7a'},
+      {x:1220,y:250, w:90,  h:20, c:'#6a7a8a'},
+      {x:1370,y:300, w:80,  h:20, c:'#5a6a7a'},
+      // plataformas altas
+      {x:1510,y:240, w:120, h:20, c:'#7a8a9a'},
+      {x:1700,y:190, w:100, h:20, c:'#8a9aaa'},
+      {x:1870,y:240, w:90,  h:20, c:'#7a8a9a'},
+      {x:2040,y:290, w:110, h:20, c:'#6a7a8a'},
+      // chegada
+      {x:2220,y:260, w:300, h:20, c:'#3a4a5a'},
+    ],
+    start:{x:60, y:480},
+    finish:{x:2460, y:230},
+    length:2700,
+  },
+  {
+    name:'Fase 3 — A Grande Corrida',
+    skyA:'#100008', skyB:'#300020',
+    platforms:[
+      {x:0,   y:540, w:250, h:25, c:'#5a3a4a'},
+      {x:310, y:500, w:80,  h:18, c:'#6a4a5a'},
+      {x:460, y:460, w:70,  h:18, c:'#6a4a5a'},
+      {x:600, y:420, w:60,  h:18, c:'#7a5a6a'},
+      // seção vertical com paredes
+      {x:740, y:200, w:20,  h:280, c:'#7a5a6a'},
+      {x:840, y:200, w:20,  h:280, c:'#7a5a6a'},
+      {x:900, y:340, w:80,  h:18, c:'#6a4a5a'},
+      {x:1050,y:290, w:70,  h:18, c:'#7a5a6a'},
+      {x:1190,y:240, w:80,  h:18, c:'#8a6a7a'},
+      // gap grande
+      {x:1380,y:290, w:60,  h:18, c:'#7a5a6a'},
+      // mais paredes
+      {x:1530,y:150, w:20,  h:320, c:'#8a6a7a'},
+      {x:1620,y:150, w:20,  h:320, c:'#8a6a7a'},
+      {x:1700,y:250, w:90,  h:18, c:'#7a5a6a'},
+      {x:1860,y:200, w:80,  h:18, c:'#8a6a7a'},
+      {x:2020,y:160, w:90,  h:18, c:'#9a7a8a'},
+      {x:2180,y:200, w:80,  h:18, c:'#8a6a7a'},
+      {x:2340,y:240, w:80,  h:18, c:'#7a5a6a'},
+      {x:2490,y:280, w:80,  h:18, c:'#6a4a5a'},
+      // chegada gloriosa
+      {x:2650,y:250, w:350, h:20, c:'#5a3a4a'},
+    ],
+    start:{x:60, y:490},
+    finish:{x:2930, y:220},
+    length:3100,
+  },
+];
+
+// ══════════════════════════════════════════════════
+//  ESTADO DO JOGO
+// ══════════════════════════════════════════════════
+let state  = 'menu'; // menu | playing | levelEnd | win
+let lvlIdx = 0;
+let timer  = 0;
+let best   = [Infinity, Infinity, Infinity];
+let parts  = []; // partículas
+let cam    = {x:0, y:0, tx:0, ty:0};
+let frameN = 0;
+
+// Plataformas móveis (nível 3)
+let movPlats = [];
+
+let P = makePlayer();
+
+function makePlayer(){
+  const lvl = LEVELS[lvlIdx];
+  return {
+    x: lvl.start.x, y: lvl.start.y,
+    w:22, h:32, vx:0, vy:0,
+    onGround:false, onLWall:false, onRWall:false,
+    jumps:2, coyote:0,
+    dashing:false, dashTimer:0, dashCD:0,
+    facing:1, frame:0, frameT:0,
+    state:'idle', dead:false,
+    trailX:[], trailY:[],
+  };
+}
+
+// ══════════════════════════════════════════════════
+//  PARTÍCULAS
+// ══════════════════════════════════════════════════
+function spawnParts(x, y, n, col, vScale=1){
+  for(let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2;
+    const sp= (Math.random()*.8+.3)*vScale*3;
+    parts.push({
+      x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-vScale*2,
+      life:1, maxLife:1, size:Math.random()*4+2,
+      col, fade: .025+Math.random()*.02,
+    });
+  }
+}
+
+function updateParts(){
+  parts = parts.filter(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.vy+=.12;
+    p.life-=p.fade;
+    return p.life>0;
+  });
+}
+
+function drawParts(){
+  parts.forEach(p=>{
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.col;
+    ctx.beginPath();
+    ctx.arc(p.x-cam.x, p.y-cam.y, p.size*p.life, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ══════════════════════════════════════════════════
+//  COLISÃO
+// ══════════════════════════════════════════════════
+function rectsOverlap(ax,ay,aw,ah, bx,by,bw,bh){
+  return ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by;
+}
+
+function resolveCollisions(){
+  const plats = LEVELS[lvlIdx].platforms;
+  P.onGround=false; P.onLWall=false; P.onRWall=false;
+
+  for(const pl of plats){
+    if(!rectsOverlap(P.x,P.y,P.w,P.h, pl.x,pl.y,pl.w,pl.h)) continue;
+
+    const overlapL = (P.x+P.w) - pl.x;
+    const overlapR = (pl.x+pl.w) - P.x;
+    const overlapT = (P.y+P.h) - pl.y;
+    const overlapB = (pl.y+pl.h) - P.y;
+    const minH = Math.min(overlapL, overlapR);
+    const minV = Math.min(overlapT, overlapB);
+
+    if(minV < minH){
+      if(overlapT < overlapB){
+        P.y = pl.y - P.h;
+        if(P.vy > 0){
+          if(P.vy > 6) spawnParts(P.x+P.w/2, P.y+P.h, 8, '#aaa', P.vy*.12);
+          P.vy = 0;
+          P.onGround = true;
+          P.jumps = 2;
+          P.coyote = COYOTE;
+        }
+      } else {
+        P.y = pl.y + pl.h;
+        if(P.vy < 0) P.vy = 0;
+      }
+    } else {
+      if(overlapL < overlapR){
+        P.x = pl.x - P.w;
+        if(P.vx > 0){ P.onRWall=true; P.vx=0; }
+      } else {
+        P.x = pl.x + pl.w;
+        if(P.vx < 0){ P.onLWall=true; P.vx=0; }
+      }
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  UPDATE PLAYER
+// ══════════════════════════════════════════════════
+function updatePlayer(){
+  if(P.dead) return;
+
+  // Dash
+  P.dashCD = Math.max(0, P.dashCD-16);
+  if(DASH() && P.dashCD<=0 && !P.dashing){
+    P.dashing  = true;
+    P.dashTimer= DASHMS;
+    P.dashCD   = 700;
+    P.vx = P.facing * DASHF;
+    P.vy = 0;
+    spawnParts(P.x+P.w/2, P.y+P.h/2, 15, '#7af', 1.5);
+  }
+  if(P.dashing){
+    P.dashTimer -= 16;
+    if(P.dashTimer<=0){ P.dashing=false; P.vx*=.3; }
+  }
+
+  if(!P.dashing){
+    // movimento horizontal
+    if(LEFT())  { P.vx -= 1.5; P.facing=-1; }
+    if(RIGHT())  { P.vx += 1.5; P.facing= 1; }
+
+    // fricção
+    P.vx *= P.onGround ? FRIC : AIRFRIC;
+    P.vx = Math.max(-SPD, Math.min(SPD, P.vx));
+
+    // gravidade
+    P.vy = Math.min(P.vy + G, MAXFALL);
+
+    // wall slide
+    if((P.onLWall && LEFT()) || (P.onRWall && RIGHT())){
+      if(P.vy > WSLIDE){ P.vy = WSLIDE; spawnParts(P.x + (P.onRWall?P.w:0), P.y+P.h*.7, 1, '#aaa', .3); }
+    }
+
+    // Coyote time
+    if(P.onGround) P.coyote = COYOTE;
+    else P.coyote = Math.max(0, P.coyote-1);
+
+    // Jump
+    if(JUMP()){
+      if(P.onLWall && !P.onGround){
+        P.vx =  WJX; P.vy = WJY; P.jumps=1;
+        spawnParts(P.x, P.y+P.h*.5, 10, '#ff0', 1);
+      } else if(P.onRWall && !P.onGround){
+        P.vx = -WJX; P.vy = WJY; P.jumps=1;
+        spawnParts(P.x+P.w, P.y+P.h*.5, 10, '#ff0', 1);
+      } else if(P.coyote>0 || P.jumps>0){
+        P.vy = JF;
+        if(P.coyote<=0) P.jumps--;
+        P.coyote=0;
+        spawnParts(P.x+P.w/2, P.y+P.h, 8, '#fff', 1);
+      }
+    }
+  }
+
+  // mover
+  P.x += P.vx;
+  P.y += P.vy;
+
+  resolveCollisions();
+
+  // trail
+  P.trailX.unshift(P.x+P.w/2); P.trailY.unshift(P.y+P.h/2);
+  if(P.trailX.length>12){ P.trailX.pop(); P.trailY.pop(); }
+
+  // morreu (caiu)
+  if(P.y > LEVELS[lvlIdx].finish.y + 600){
+    P.dead = true;
+    spawnParts(P.x+P.w/2, P.y, 30, '#f44', 2);
+    setTimeout(()=>resetLevel(), 1000);
+  }
+
+  // chegou?
+  const fin = LEVELS[lvlIdx].finish;
+  if(P.x+P.w > fin.x && P.y < fin.y+60 && P.y+P.h > fin.y){
+    levelComplete();
+  }
+
+  // animação
+  P.frameT++;
+  if(P.frameT>5){ P.frame=(P.frame+1)%4; P.frameT=0; }
+
+  P.state = P.dashing ? 'dash'
+    : !P.onGround && (P.onLWall||P.onRWall) ? 'wall'
+    : !P.onGround && P.vy<0 ? 'jump'
+    : !P.onGround ? 'fall'
+    : Math.abs(P.vx)>.5 ? 'run'
+    : 'idle';
+
+  // estado da câmera
+  cam.tx = P.x - W*.35;
+  cam.ty = P.y - H*.45;
+  cam.x += (cam.tx - cam.x)*.12;
+  cam.y += (cam.ty - cam.y)*.10;
+  cam.y = Math.max(LEVELS[lvlIdx].finish.y - H*.6, Math.min(cam.y, 600-H*.6));
+}
+
+// ══════════════════════════════════════════════════
+//  DESENHO
+// ══════════════════════════════════════════════════
+function drawBG(){
+  const lvl = LEVELS[lvlIdx];
+  const gr = ctx.createLinearGradient(0,0,0,H);
+  gr.addColorStop(0, lvl.skyA);
+  gr.addColorStop(1, lvl.skyB);
+  ctx.fillStyle = gr;
+  ctx.fillRect(0,0,W,H);
+
+  // prédios ao fundo
+  ctx.fillStyle = '#ffffff06';
+  for(let i=0;i<30;i++){
+    const bx = ((i*187 + lvlIdx*500)%LEVELS[lvlIdx].length) - cam.x*.2;
+    const bh = 80+i*20;
+    ctx.fillRect(bx, H-bh, 60+i%3*20, bh);
+  }
+  ctx.fillStyle = '#ffffff09';
+  for(let i=0;i<20;i++){
+    const bx = ((i*241 + lvlIdx*300)%LEVELS[lvlIdx].length) - cam.x*.4;
+    const bh = 60+i*25;
+    ctx.fillRect(bx, H-bh, 40+i%4*15, bh);
+  }
+}
+
+function drawPlatforms(){
+  const plats = LEVELS[lvlIdx].platforms;
+  plats.forEach(pl=>{
+    const sx = pl.x - cam.x, sy = pl.y - cam.y;
+    // sombra
+    ctx.fillStyle = '#00000044';
+    ctx.fillRect(sx+4, sy+4, pl.w, pl.h);
+    // plataforma
+    ctx.fillStyle = pl.c;
+    ctx.fillRect(sx, sy, pl.w, pl.h);
+    // brilho no topo
+    ctx.fillStyle = '#ffffff18';
+    ctx.fillRect(sx, sy, pl.w, 4);
+    // detalhe
+    ctx.fillStyle = '#ffffff08';
+    for(let xi=0; xi<pl.w; xi+=20){
+      ctx.fillRect(sx+xi, sy, 2, pl.h);
+    }
+  });
+}
+
+function drawFinish(){
+  const fin = LEVELS[lvlIdx].finish;
+  const sx = fin.x - cam.x, sy = fin.y - cam.y;
+
+  // pulsação
+  const pulse = Math.sin(frameN*.06)*.5+.5;
+
+  // poste
+  ctx.fillStyle = '#ffd700';
+  ctx.fillRect(sx-3, sy-80, 6, 80+60);
+
+  // bandeira
+  ctx.fillStyle = `rgba(255,${Math.floor(200+55*pulse)},0,.9)`;
+  ctx.beginPath();
+  ctx.moveTo(sx+3, sy-80);
+  ctx.lineTo(sx+40, sy-65);
+  ctx.lineTo(sx+3, sy-50);
+  ctx.fill();
+
+  // FINISH
+  ctx.save();
+  ctx.shadowColor = '#ffd700';
+  ctx.shadowBlur = 20*pulse;
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 14px Segoe UI';
+  ctx.textAlign = 'center';
+  ctx.fillText('FINISH', sx+18, sy-85);
+  ctx.restore();
+
+  // linha
+  ctx.strokeStyle = `rgba(255,220,0,${.4+.4*pulse})`;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([10,6]);
+  ctx.beginPath();
+  ctx.moveTo(sx, sy-80);
+  ctx.lineTo(sx, sy+60);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawPlayer(){
+  if(P.dead) return;
+  const px = P.x - cam.x, py = P.y - cam.y;
+  const f  = P.facing;
+
+  // trail de dash
+  if(P.dashing || P.state==='dash'){
+    P.trailX.forEach((tx,i)=>{
+      const a = (1-i/P.trailX.length)*.4;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#5af';
+      ctx.fillRect(tx-cam.x-P.w/2, P.trailY[i]-cam.y-P.h/2, P.w, P.h);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.save();
+  ctx.translate(px + P.w/2, py + P.h/2);
+
+  // Wall slide inclinação
+  if(P.state==='wall') ctx.rotate(P.onRWall ? .3 : -.3);
+
+  const scaleY = P.state==='jump' ? 1.15 : P.state==='fall' ? 0.88 : 1;
+  const scaleX = P.state==='jump' ? 0.88 : P.state==='fall' ? 1.12 : 1;
+  ctx.scale(f * scaleX, scaleY);
+
+  // sombra
+  ctx.fillStyle = '#00000033';
+  ctx.ellipse(0, P.h/2+2, P.w*.5, 4, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // corpo
+  const bodyCol = P.dashing ? '#5af' : P.state==='wall' ? '#ffa' : '#ff6b35';
+  ctx.fillStyle = bodyCol;
+  roundRect(ctx, -P.w/2, -P.h/2, P.w, P.h, 5);
+  ctx.fill();
+
+  // brilho
+  ctx.fillStyle = '#ffffff30';
+  roundRect(ctx, -P.w/2+2, -P.h/2+2, P.w/2, P.h*.4, 3);
+  ctx.fill();
+
+  // pernas (animação)
+  const legAnim = P.state==='run' ? Math.sin(frameN*.3)*8 : 0;
+  ctx.fillStyle = '#cc4400';
+  ctx.fillRect(-P.w/2, P.h/2-8, P.w/2-1, 10); // perna E
+  ctx.save(); ctx.translate(-P.w/4, P.h/2-4); ctx.rotate(legAnim*.04); ctx.fillRect(0,0, P.w/2-1, 8); ctx.restore();
+  ctx.fillRect(1, P.h/2-8, P.w/2-1, 10); // perna D
+  ctx.save(); ctx.translate(2, P.h/2-4); ctx.rotate(-legAnim*.04); ctx.fillRect(0,0, P.w/2-1, 8); ctx.restore();
+
+  // cabeça
+  ctx.fillStyle = '#ffcc99';
+  ctx.beginPath();
+  ctx.arc(0, -P.h/2-8, 11, 0, Math.PI*2);
+  ctx.fill();
+
+  // olho
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(4, -P.h/2-8, 3, 0, Math.PI*2);
+  ctx.fill();
+
+  // capacete
+  ctx.fillStyle = bodyCol;
+  ctx.beginPath();
+  ctx.ellipse(0, -P.h/2-14, 11, 7, 0, Math.PI, 0);
+  ctx.fill();
+
+  // braços
+  const armSwing = P.state==='run' ? Math.sin(frameN*.3)*12 : P.state==='jump'?20:P.state==='fall'?-10:0;
+  ctx.strokeStyle = '#cc4400'; ctx.lineWidth=5; ctx.lineCap='round';
+  ctx.save(); ctx.translate(-P.w/2, -P.h/4);
+  ctx.rotate((-armSwing+10)*Math.PI/180);
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-8,10); ctx.stroke();
+  ctx.restore();
+  ctx.save(); ctx.translate(P.w/2, -P.h/4);
+  ctx.rotate((armSwing-10)*Math.PI/180);
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(8,10); ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function drawHUD(){
+  const lvl = LEVELS[lvlIdx];
+  // painel superior
+  ctx.fillStyle = 'rgba(0,0,0,.5)';
+  ctx.fillRect(0,0,W,50);
+
+  // nível
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 16px Segoe UI';
+  ctx.textAlign = 'left';
+  ctx.fillText(lvl.name, 16, 32);
+
+  // timer
+  const t = (timer/1000).toFixed(2);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 22px monospace';
+  ctx.fillText('⏱ '+t+'s', W/2, 32);
+
+  // melhor tempo
+  if(best[lvlIdx]<Infinity){
+    ctx.font = '13px Segoe UI';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Melhor: '+(best[lvlIdx]/1000).toFixed(2)+'s', W/2, 48);
+  }
+
+  // controles
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#ffffff55';
+  ctx.font = '13px Segoe UI';
+  ctx.fillText('← → Mover  |  Espaço Pular  |  Shift Dash', W-12, 32);
+
+  // dash cooldown
+  if(P.dashCD > 0){
+    const pct = 1 - P.dashCD/700;
+    ctx.fillStyle = '#ffffff33';
+    ctx.fillRect(W/2-40, H-20, 80, 8);
+    ctx.fillStyle = '#5af';
+    ctx.fillRect(W/2-40, H-20, 80*pct, 8);
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('DASH', W/2, H-23);
+  }
+
+  // pulos restantes
+  if(!P.onGround && P.jumps===1){
+    ctx.fillStyle = '#ffd700aa';
+    ctx.font = 'bold 12px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('● duplo salto disponível', W/2, H-35);
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  TELAS
+// ══════════════════════════════════════════════════
+function drawMenu(){
+  // fundo
+  const gr = ctx.createLinearGradient(0,0,0,H);
+  gr.addColorStop(0,'#050015'); gr.addColorStop(1,'#150030');
+  ctx.fillStyle=gr; ctx.fillRect(0,0,W,H);
+
+  // estrelas
+  for(let i=0;i<100;i++){
+    ctx.fillStyle=`rgba(255,255,255,${.3+Math.sin(frameN*.02+i)*.3})`;
+    ctx.beginPath();
+    ctx.arc((i*197)%W, (i*137)%H, Math.random()*1.5+.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.textAlign='center';
+  ctx.shadowColor='#ff6b35'; ctx.shadowBlur=30;
+  ctx.fillStyle='#ff6b35';
+  ctx.font='bold 64px Segoe UI';
+  ctx.fillText('🏃 PARKOUR', W/2, H*.3);
+  ctx.shadowBlur=0;
+
+  ctx.fillStyle='#ffffff';
+  ctx.font='bold 22px Segoe UI';
+  ctx.fillText('Chegue à linha de chegada em cada fase!', W/2, H*.42);
+
+  ctx.fillStyle='#aaa';
+  ctx.font='16px Segoe UI';
+  ctx.fillText('← → Mover  |  Espaço/↑ Pular (2x Duplo Salto)  |  Shift Dash', W/2, H*.5);
+  ctx.fillText('Ao lado de paredes: Pular para Wall Jump!', W/2, H*.55);
+
+  // botão
+  const pulse = Math.sin(frameN*.05)*.08+1;
+  ctx.save(); ctx.scale(1,1);
+  const bx=W/2-120, by=H*.65-30, bw=240, bh=60;
+  ctx.fillStyle='#ff6b35';
+  ctx.shadowColor='#ff6b35'; ctx.shadowBlur=20;
+  roundRect(ctx,bx,by,bw,bh,30); ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#fff';
+  ctx.font='bold 24px Segoe UI';
+  ctx.fillText('▶  JOGAR', W/2, H*.65+8);
+  ctx.restore();
+
+  // clique no botão
+  if(!menuListener){
+    menuListener=true;
+    C.addEventListener('click', e=>{
+      if(state!=='menu') return;
+      const bx=W/2-120, by=H*.65-30, bw=240, bh=60;
+      const r=C.getBoundingClientRect();
+      const cx=e.clientX-r.left, cy=e.clientY-r.top;
+      if(cx>=bx&&cx<=bx+bw&&cy>=by&&cy<=by+bh) startGame();
+    });
+  }
+}
+let menuListener=false;
+
+function drawLevelEnd(){
+  ctx.fillStyle='rgba(0,0,0,.7)';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#ffd700';
+  ctx.font='bold 52px Segoe UI';
+  ctx.shadowColor='#ffd700'; ctx.shadowBlur=20;
+  ctx.fillText('🎉 FASE COMPLETA!', W/2, H*.3);
+  ctx.shadowBlur=0;
+
+  ctx.fillStyle='#fff';
+  ctx.font='bold 28px Segoe UI';
+  const t=(endTime/1000).toFixed(2);
+  ctx.fillText('Tempo: '+t+'s', W/2, H*.42);
+
+  if(best[lvlIdx]<Infinity){
+    const b=(best[lvlIdx]/1000).toFixed(2);
+    const isBest = endTime<=best[lvlIdx];
+    ctx.fillStyle = isBest ? '#ffd700':'#aaa';
+    ctx.font='18px Segoe UI';
+    ctx.fillText(isBest?'🏆 NOVO RECORDE! '+b+'s':'Melhor: '+b+'s', W/2, H*.5);
+  }
+
+  ctx.fillStyle='#fff';
+  ctx.font='16px Segoe UI';
+  if(lvlIdx<LEVELS.length-1){
+    ctx.fillText('Pressione ESPAÇO ou clique para a próxima fase', W/2, H*.62);
+    ctx.fillStyle='#ff6b35';
+    roundRect(ctx,W/2-130,H*.68,260,55,28); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 22px Segoe UI';
+    ctx.fillText('▶ Próxima Fase', W/2, H*.68+34);
+  } else {
+    ctx.fillStyle='#ffd700';
+    ctx.font='bold 24px Segoe UI';
+    ctx.fillText('🏆 Você completou todas as fases!', W/2, H*.62);
+    ctx.fillStyle='#ff6b35';
+    roundRect(ctx,W/2-110,H*.7,220,55,28); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 20px Segoe UI';
+    ctx.fillText('🔄 Jogar de novo', W/2, H*.7+34);
+  }
+}
+
+let endTime=0, endListener=false;
+function setupEndClick(){
+  if(endListener) return; endListener=true;
+  C.addEventListener('click', e=>{
+    if(state!=='levelEnd') return;
+    const r=C.getBoundingClientRect();
+    const cx=e.clientX-r.left, cy=e.clientY-r.top;
+    const bx=W/2-130, by=H*.68, bw=260, bh=55;
+    const bx2=W/2-110, by2=H*.7, bw2=220, bh2=55;
+    if((cx>=bx&&cx<=bx+bw&&cy>=by&&cy<=by+bh)||(cx>=bx2&&cx<=bx2+bw2&&cy>=by2&&cy<=by2+bh2)){
+      nextLevel();
+    }
+  });
+  document.addEventListener('keydown', e=>{
+    if(state==='levelEnd' && (e.code==='Space'||e.code==='Enter')) nextLevel();
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  CONTROLE DE JOGO
+// ══════════════════════════════════════════════════
+function startGame(){
+  lvlIdx=0; state='playing';
+  timer=0; parts=[];
+  P=makePlayer();
+  cam={x:0,y:0,tx:0,ty:0};
+}
+
+function resetLevel(){
+  P=makePlayer(); parts=[];
+  cam={x:0,y:0,tx:0,ty:0};
+}
+
+function levelComplete(){
+  if(state!=='playing') return;
+  endTime = timer;
+  if(endTime < best[lvlIdx]) best[lvlIdx]=endTime;
+  state='levelEnd';
+  spawnParts(P.x+P.w/2, P.y, 50, '#ffd700', 2);
+  spawnParts(P.x+P.w/2, P.y, 30, '#ff6b35', 1.5);
+  setupEndClick();
+}
+
+function nextLevel(){
+  if(lvlIdx<LEVELS.length-1){
+    lvlIdx++; state='playing';
+    timer=0; parts=[];
+    P=makePlayer();
+    cam={x:0,y:0,tx:0,ty:0};
+  } else {
+    lvlIdx=0; state='menu';
+    menuListener=false;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  LOOP PRINCIPAL
+// ══════════════════════════════════════════════════
+let lastTime=0;
+function loop(ts){
+  const dt = ts-lastTime; lastTime=ts;
+  frameN++;
+
+  ctx.clearRect(0,0,W,H);
+
+  if(state==='menu'){
+    drawMenu();
+  } else if(state==='playing' || state==='levelEnd'){
+    timer += Math.min(dt, 50);
+    if(state==='playing') updatePlayer();
+    updateParts();
+
+    drawBG();
+    drawPlatforms();
+    drawFinish();
+    drawParts();
+    drawPlayer();
+    drawHUD();
+
+    if(state==='levelEnd') drawLevelEnd();
+  }
+
+  jp.clear();
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(t=>{ lastTime=t; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
